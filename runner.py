@@ -20,12 +20,13 @@ def runner(dir_path):
     l2_basenames = np.array([float(l2_name.split('.')[0]) for l2_name in l2_filenames])
 
     do_semantic = False
-    display = False
+    display = True
 
     total_rre_error = 0.0
     total_rte_error = 0.0
 
     T_gt = np.loadtxt("l1l2_transform.txt")
+    T_gt = np.eye(4)
 
 
     for index, filename in enumerate(l1_filenames):
@@ -46,15 +47,21 @@ def runner(dir_path):
         source_pts = source_pts_og.copy()
         target_pts = target_pts_og.copy()
 
+        # print(T_gt)
+        display_registered_point_clouds(source_pts_og.T, target_pts_og.T, T_gt)
+
         # source_pts = fps_downsample(source_pts_og, 20000)
         # target_pts = fps_downsample(target_pts_og, 20000)
 
         T0 = np.eye(4)
 
+
+
         # T0 = initialize_ICP(source_pts, target_pts)
 
         T = icp(source_pts, target_pts, source_pts_classes, target_pts_classes, T0 = T0)
         print(T)
+        print(T_gt)
         total_rre_error += compute_rre(T[:3, :3], T_gt[:3, :3])
         total_rte_error += compute_rte(T[:3, 3], T_gt[:3, 3])
 
@@ -64,4 +71,4 @@ def runner(dir_path):
         print(total_rre_error, total_rte_error, index)
 
 if __name__ == '__main__':
-    runner("good_march_14")
+    runner("test_dir")

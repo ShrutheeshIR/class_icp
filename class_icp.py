@@ -13,6 +13,8 @@ def fps_downsample(points, number_of_points_to_sample):
     points = points.T
     selected_points = np.zeros((number_of_points_to_sample, 3))
 
+    idx_selected = np.zeros((number_of_points_to_sample), dtype=np.int32)
+
     dist = np.ones(points.shape[0]) * np.inf # distance to the selected set
     for i in range(number_of_points_to_sample):
         # pick the point with max dist
@@ -20,10 +22,12 @@ def fps_downsample(points, number_of_points_to_sample):
         selected_points[i] = points[idx]
         dist_ = ((points - selected_points[i]) ** 2).sum(-1)
         dist = np.minimum(dist, dist_)
-    return selected_points.T
+        idx_selected[i] = idx
+
+    return selected_points.T, idx_selected
 
 
-def compute_nearest_neighbour(source_pts, target_pts, source_pts_classes, target_pts_classes):
+def compute_nearest_neighbour(source_pts, target_pts, source_pts_classes, target_pts_classes, num_max_points_per_class):
     """
     source_pts : Nx3
     target_pts : Nx3
@@ -40,8 +44,11 @@ def compute_nearest_neighbour(source_pts, target_pts, source_pts_classes, target
         #     continue
         
         source_indices = np.nonzero(source_pts_classes == src_class)[0]
+        # if len(source_indices) > num_max_points_per_class:
+        #     _, selected_indices = fps_downsample(source_pts[source_indices].T, num_max_points_per_class)
+        #     source_indices = source_indices[selected_indices]
+        
         source_class_pts = source_pts[source_indices]
-
 
         target_indices = np.nonzero(target_pts_classes == src_class)[0]
 
@@ -105,7 +112,7 @@ def solve_Rt(source_pts, target_pts):
 
 
 
-def icp_iteration(source_pts, target_pts, source_pt_classes, target_pt_classes):
+def icp_iteration(source_pts, target_pts, source_pt_classes, target_pt_classes, num_max_points_per_class):
     """
     source_pts : 3xN
     target_pts : 3xN
@@ -113,14 +120,14 @@ def icp_iteration(source_pts, target_pts, source_pt_classes, target_pt_classes):
     T0 : initial_guess, 4x4 matrix
     """
     # distances, target_indices = compute_nearest_neighbour(source_pts.T, target_pts.T)
-    distances, target_indices, source_indices = compute_nearest_neighbour(source_pts.T, target_pts.T, source_pt_classes, target_pt_classes)
+    distances, target_indices, source_indices = compute_nearest_neighbour(source_pts.T, target_pts.T, source_pt_classes, target_pt_classes, num_max_points_per_class)
 
     # print("D : ", np.mean(distances))
     T = solve_Rt(source_pts[:, source_indices], target_pts[:, target_indices])
     return T, np.mean(distances)
 
 
-def icp(source_pts_og, target_pts_og, source_pt_classes, target_pt_classes, T0 = np.eye(4), num_iters = 5000):
+def icp(source_pts_og, target_pts_og, source_pt_classes, target_pt_classes, T0 = np.eye(4), num_iters = 5000, capped_points_no = 500):
     T = T0.copy()
 
     source_pts = source_pts_og.copy()
@@ -138,8 +145,19 @@ def icp(source_pts_og, target_pts_og, source_pt_classes, target_pt_classes, T0 =
     source_pts = toInHomog(T @ toHomog(source_pts))
     prev_err = np.inf
 
+
+    # classes = np.unique(source_pts_classes)
+    # for src_class in classes:
+    #     source_indices = np.nonzero(source_pts_classes == src_class)[0]
+    #     if len(source_indices) > capped_points_no:
+    #         _, selected_indices = fps_downsample(src[source_indices].T, capped_points_no)
+    #         source_indices = source_indices[selected_indices]
+
+
+
+
     for _ in range(100):
-        T, d = icp_iteration(src, dst, source_pt_classes, target_pt_classes)
+        T, d = icp_iteration(src, dst, source_pt_classes, target_pt_classes, capped_points_no)
         src = toInHomog(T @ toHomog(src))
         if d > prev_err:
             break
