@@ -159,8 +159,8 @@ def icp(source_pts_og, target_pts_og, source_pt_classes, target_pt_classes, T0 =
     for _ in range(100):
         T, d = icp_iteration(src, dst, source_pt_classes, target_pt_classes, capped_points_no)
         src = toInHomog(T @ toHomog(src))
-        if d > prev_err:
-            break
+        # if d > prev_err:
+        #     break
         prev_err = d
     
     T = solve_Rt(source_pts_og, src)

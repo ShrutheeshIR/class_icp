@@ -10,8 +10,6 @@ def get_point_clouds(source_filename, target_filename, do_semantic = False, disp
     source_pts =  np.asarray(source_ply).T[:3]
     target_pts = np.asarray(target_ply).T[:3]
 
-    source_pts[1] *= -1
-    target_pts[1] *= -1
 
     if do_semantic:
         source_class_pts = np.asarray(source_ply)[:, -1].astype(np.int32)

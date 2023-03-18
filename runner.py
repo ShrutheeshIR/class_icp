@@ -19,14 +19,14 @@ def runner(dir_path):
     l2_filenames = [os.path.basename(x) for x in l2_filenames]
     l2_basenames = np.array([float(l2_name.split('.')[0]) for l2_name in l2_filenames])
 
-    do_semantic = False
-    display = True
+    do_semantic = True
+    display = False
 
     total_rre_error = 0.0
     total_rte_error = 0.0
 
-    T_gt = np.loadtxt("l1l2_transform.txt")
-    T_gt = np.eye(4)
+    T_gt = np.linalg.inv(np.loadtxt("l1l2_transform.txt"))
+    # T_gt = np.eye(4)
 
 
     for index, filename in enumerate(l1_filenames):
@@ -48,7 +48,7 @@ def runner(dir_path):
         target_pts = target_pts_og.copy()
 
         # print(T_gt)
-        display_registered_point_clouds(source_pts_og.T, target_pts_og.T, T_gt)
+        # display_registered_point_clouds(source_pts_og.T, target_pts_og.T, T_gt)
 
         # source_pts = fps_downsample(source_pts_og, 20000)
         # target_pts = fps_downsample(target_pts_og, 20000)
@@ -60,8 +60,8 @@ def runner(dir_path):
         # T0 = initialize_ICP(source_pts, target_pts)
 
         T = icp(source_pts, target_pts, source_pts_classes, target_pts_classes, T0 = T0)
-        print(T)
-        print(T_gt)
+        # print(T)
+        # print(T_gt)
         total_rre_error += compute_rre(T[:3, :3], T_gt[:3, :3])
         total_rte_error += compute_rte(T[:3, 3], T_gt[:3, 3])
 
@@ -69,6 +69,7 @@ def runner(dir_path):
             display_registered_point_clouds(source_pts_og.T, target_pts_og.T, T)        
 
         print(total_rre_error, total_rte_error, index)
+        # yud
 
 if __name__ == '__main__':
-    runner("test_dir")
+    runner("/home/naru/AVL/carla-wrapper")
