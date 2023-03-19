@@ -13,10 +13,6 @@ def runner(dir_path):
     l1_directories = sorted(glob.glob(os.path.join(dir_path, 'lidar_1*')))
     l2_directories = [l1_dir.replace('lidar_1', 'lidar_2') for l1_dir in l1_directories]
 
-    rte_error_all_dir = 0
-    rre_error_all_dir = 0
-    total_files = 0
-
     for (l1_directory, l2_directory) in tqdm(zip(l1_directories, l2_directories)):
         T_gt = np.linalg.inv(np.loadtxt(os.path.join(l1_directory, "l1l2_transform.txt")))
 
@@ -32,13 +28,12 @@ def runner(dir_path):
         # do_semantic = False
         display = False
 
-        total_rre_error = 0.0
-        total_rte_error = 0.0
 
         for do_semantic in [False, True]:
 
+            total_rre_error = 0.0
+            total_rte_error = 0.0
             for index, filename in tqdm(enumerate(l1_filenames), leave=False):
-
                 l1_basename = l1_basenames[index]
                 l2_basename_index = np.argmin(np.abs(l2_basenames - l1_basename))
 
@@ -76,14 +71,7 @@ def runner(dir_path):
             with open(os.path.join(l1_directory, 'metrics_%s.json'%do_semantic), 'w', encoding='utf-8') as f:
                 json.dump(total_metrics, f, ensure_ascii=False, indent=4)        
 
-            rte_error_all_dir += total_rte_error
-            rre_error_all_dir += total_rre_error
-            total_files += (index + 1)
         
-        overall_metrics = {'rte' : rte_error_all_dir / float(total_files), 'rre' : rre_error_all_dir / float(total_files), 'files' : (total_files)}
-        with open(os.path.join(dir_path, 'metrics_%s.json'%do_semantic), 'w', encoding='utf-8') as f:
-            json.dump(overall_metrics, f, ensure_ascii=False, indent=4)        
-
 
 if __name__ == '__main__':
     runner("data_dir")
