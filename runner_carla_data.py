@@ -38,8 +38,7 @@ def runner(dir_path):
         for do_semantic in [False, True]:
 
             for index, filename in tqdm(enumerate(l1_filenames), leave=False):
-                if index > 25:
-                    break
+
                 l1_basename = l1_basenames[index]
                 l2_basename_index = np.argmin(np.abs(l2_basenames - l1_basename))
 
