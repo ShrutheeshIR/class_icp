@@ -5,10 +5,21 @@ from scipy.spatial.transform import Rotation as R
 # from plot_utils import colormap_and_plot, plot_point_clouds
 from utils_3d import toHomog, toInHomog
 
+from typing import Tuple, List
+
 np.set_printoptions(suppress=True, precision=5)
 
 
-def fps_downsample(points, number_of_points_to_sample):
+def fps_downsample(points, number_of_points_to_sample) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Downsample the point cloud using farthest point sampling
+    Args:
+        points : 3D points of shape (N, 3)
+        number_of_points_to_sample : final number of points to sample
+    Returns:
+        selected_points : 3D points of shape (number_of_points_to_sample, 3)
+        idx_selected : indices of the selected points (this is useful for matching)
+    """
 
     points = points.T
     selected_points = np.zeros((number_of_points_to_sample, 3))
@@ -27,12 +38,20 @@ def fps_downsample(points, number_of_points_to_sample):
     return selected_points.T, idx_selected
 
 
-def compute_nearest_neighbour(source_pts, target_pts, source_pts_classes, target_pts_classes, num_max_points_per_class):
+def compute_nearest_neighbour(source_pts, target_pts, source_pts_classes, target_pts_classes, num_max_points_per_class) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    source_pts : Nx3
-    target_pts : Nx3
-
-    Returns : R, t
+    For each point in source, compute the corresponding matched points in target.
+    Args:
+        source_pts : Nx3
+        target_pts : Nx3
+        source_pts_classes : N representing the semantic index of each point in source
+        target_pts_classes : N representing the semantic index of each point in target
+        max_num_points_per_class : maximum number of points to consider per class. This is useful for balancing
+    
+    Returns:
+        distances : N distance of each point in source to its nearest neighbour in target
+        target_indices : the matched target indices
+        source_indices : the matched source indices
     """
     classes = np.unique(source_pts_classes)
     all_target_indices = []
@@ -44,9 +63,9 @@ def compute_nearest_neighbour(source_pts, target_pts, source_pts_classes, target
         #     continue
         
         source_indices = np.nonzero(source_pts_classes == src_class)[0]
-        # if len(source_indices) > num_max_points_per_class:
-        #     _, selected_indices = fps_downsample(source_pts[source_indices].T, num_max_points_per_class)
-        #     source_indices = source_indices[selected_indices]
+        if len(source_indices) > num_max_points_per_class:
+            _, selected_indices = fps_downsample(source_pts[source_indices].T, num_max_points_per_class)
+            source_indices = source_indices[selected_indices]
         
         source_class_pts = source_pts[source_indices]
 
@@ -80,10 +99,12 @@ def compute_nearest_neighbour(source_pts, target_pts, source_pts_classes, target
     return np.array(all_distances), np.array(all_target_indices), np.array(all_source_indices)
 
 
-def solve_Rt(source_pts, target_pts):
+def solve_Rt(source_pts, target_pts) -> np.ndarray:
     """
-    source_pts : 3xN
-    target_pts : 3xN
+    Solve for the pose given corresponding points
+    Args:
+        source_pts : 3xN
+        target_pts : 3xN
 
     Returns : R, t
     """
@@ -112,12 +133,20 @@ def solve_Rt(source_pts, target_pts):
 
 
 
-def icp_iteration(source_pts, target_pts, source_pt_classes, target_pt_classes, num_max_points_per_class):
+def icp_iteration(source_pts, target_pts, source_pt_classes, target_pt_classes, num_max_points_per_class) -> Tuple[np.ndarray, float]:
     """
-    source_pts : 3xN
-    target_pts : 3xN
-
-    T0 : initial_guess, 4x4 matrix
+    Perform a single iteration of ICP.
+    Compute matches, followed by solving for the pose
+    Args:
+        source_pts : 3xN
+        target_pts : 3xN
+        source_pt_classes : N representing the semantic index of each point in source
+        target_pt_classes : N representing the semantic index of each point in target
+        num_max_points_per_class : maximum number of points to consider per class. This is useful for balancing
+    
+    Returns:
+        T : 4x4 the solved transformation
+        mean_distance : the mean distance of each point in source to its nearest neighbour. This is useful for convergence
     """
     # distances, target_indices = compute_nearest_neighbour(source_pts.T, target_pts.T)
     distances, target_indices, source_indices = compute_nearest_neighbour(source_pts.T, target_pts.T, source_pt_classes, target_pt_classes, num_max_points_per_class)
@@ -127,7 +156,20 @@ def icp_iteration(source_pts, target_pts, source_pt_classes, target_pt_classes, 
     return T, np.mean(distances)
 
 
-def icp(source_pts_og, target_pts_og, source_pt_classes, target_pt_classes, T0 = np.eye(4), num_iters = 5000, capped_points_no = 500):
+def icp(source_pts_og, target_pts_og, source_pt_classes, target_pt_classes, T0 = np.eye(4), num_iters = 5000, capped_points_no = 500) -> np.ndarray:
+    """
+    Perform the full ICP algorithm
+    Args:
+        source_pts_og : 3xN
+        target_pts_og : 3xN
+        source_pt_classes : N representing the semantic index of each point in source
+        target_pt_classes : N representing the semantic index of each point in target
+        T0 : initial guess for the transformation
+        num_iters : maximum number of iterations
+    Returns:
+        T : 4x4 the solved transformation
+    """
+
     T = T0.copy()
 
     source_pts = source_pts_og.copy()
@@ -146,16 +188,6 @@ def icp(source_pts_og, target_pts_og, source_pt_classes, target_pt_classes, T0 =
     prev_err = np.inf
 
 
-    # classes = np.unique(source_pts_classes)
-    # for src_class in classes:
-    #     source_indices = np.nonzero(source_pts_classes == src_class)[0]
-    #     if len(source_indices) > capped_points_no:
-    #         _, selected_indices = fps_downsample(src[source_indices].T, capped_points_no)
-    #         source_indices = source_indices[selected_indices]
-
-
-
-
     for _ in range(100):
         T, d = icp_iteration(src, dst, source_pt_classes, target_pt_classes, capped_points_no)
         src = toInHomog(T @ toHomog(src))
@@ -168,7 +200,15 @@ def icp(source_pts_og, target_pts_og, source_pt_classes, target_pt_classes, T0 =
     return T
 
 
-def initialize_ICP(source_pts, target_pts):
+def initialize_ICP(source_pts, target_pts) -> np.ndarray:
+    """
+    Initialize the transform
+    Args:
+        source_pts : 3xN
+        target_pts : 3xN
+    Returns:
+        T_init : 4x4 the initial transformation
+    """
 
     T_init = np.eye(4)
     T_init[:3, :3] = R.random().as_matrix()
@@ -185,13 +225,8 @@ if __name__ == '__main__':
     source_pts = source_pts_og.copy()
     target_pts = target_pts_og.copy()
 
-    # source_pts = fps_downsample(source_pts_og, 20000)
-    # target_pts = fps_downsample(target_pts_og, 20000)
-
     T_gt = np.eye(4)
 
-    # source_pts_classes = np.zeros((len(source_pts.T)), dtype=np.int32)
-    # target_pts_classes = np.zeros((len(target_pts.T)), dtype=np.int32)
     T0 = initialize_ICP(source_pts, target_pts)
 
     T = icp(source_pts, target_pts, source_pts_classes, target_pts_classes, T0 = T0)
@@ -201,4 +236,4 @@ if __name__ == '__main__':
     print(f"rre={rre}, rte={rte}")
 
     display_registered_point_clouds(source_pts_og.T, target_pts_og.T, T)
-    # display_registered_point_clouds(source_pts_og.T, target_pts_og.T, np.eye(4))    
+    # display_registered_point_clouds(source_pts_og.T, target_pts_og.T, np.eye(4))

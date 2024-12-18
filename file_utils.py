@@ -1,8 +1,24 @@
+# Contains utility functions for reading and writing files
+
 import numpy as np
 import open3d as o3d
 from plot_utils import colormap_and_plot
 
 def get_point_clouds(source_filename, target_filename, do_semantic = False, display = False):
+    """
+    Read the points from filenames and display if necessary
+    Args:
+        source_filename : path for the file containing source points
+        target_filename : path for the file containing target points
+        do_semantic : whether to read semantic classes or not
+        display : whether to display the point clouds or not
+    Returns:
+        source_pts : 3xN
+        target_pts : 3xN
+        source_class_pts : N
+        target_class_pts : N
+    """
+
     source_ply = np.load(source_filename)
     target_ply = np.load(target_filename)
 

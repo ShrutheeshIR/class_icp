@@ -1,3 +1,6 @@
+# Description: This file contains utility functions for evaluation of the estimated poses.
+# Computes the relative rotation and translation error.
+
 import numpy as np
 
 def compute_rre(R_est: np.ndarray, R_gt: np.ndarray):
